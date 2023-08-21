@@ -1,0 +1,321 @@
+#SAMUEL
+# Install and load required packages
+install.packages("tidyverse")
+install.packages("ggplot2")
+install.packages("gridExtra")
+library(ggplot2)
+library(gridExtra)
+library(tidyverse)
+
+# Load your dataset (replace 'your_data.csv' with your actual data file)
+data <- read.csv("students_adaptability_level_online_education (1).csv")
+
+# Basic preprocessing
+# Assuming you might need to convert factors to character for consistency
+data <- data %>%
+  mutate_if(is.factor, as.character)
+
+# Data visualization and EDA
+# Summary statistics
+summary(data)
+
+# Visualize distribution of categorical variables (bar plots)
+categorical_vars <- c("Gender", "Education Level", "Institution Type", "IT Student", "Location", 
+                      "Load-shedding", "Financial Condition", "Internet Type", "Network Type", 
+                      "Self Lms", "Device", "Adaptivity Level")
+
+# Create a list to store individual box plots
+box_plots <- list()
+
+# Iterate through each column and create a box plot
+for (col_name in colnames(data)) {
+  if (col_name != "Gender" && col_name != "Location" && is.numeric(data[[col_name]])) {
+    plot <- ggplot(data, aes_string(y = col_name)) +
+      geom_boxplot(fill = "lightgreen", color = "black") +
+      labs(title = paste("Box Plot of", col_name), y = col_name) +
+      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())  # Remove x-axis labels and ticks
+    
+    box_plots[[col_name]] <- plot
+  }
+}
+
+# Create a list to store individual bar plots for non-numeric columns
+bar_plots <- list()
+
+# Iterate through each column and create bar plots for non-numeric columns
+for (col_name in colnames(data)) {
+  if (col_name != "Age" && !is.numeric(data[[col_name]])) {
+    plot <- ggplot(data, aes_string(x = col_name)) +
+      geom_bar(fill = "purple", color = "black") +
+      labs(title = paste("Bar Plot of", col_name), x = col_name, y = "Count") +
+      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())  # Remove x-axis labels and ticks
+    
+    bar_plots[[col_name]] <- plot
+  }
+}
+
+# Arrange the box plots and bar plots in separate grids
+grid_arrange_box <- do.call(grid.arrange, c(box_plots, ncol = 2))
+grid_arrange_bar <- do.call(grid.arrange, c(bar_plots, ncol = 2))
+
+# Display the grid of box plots and grid of bar plots
+print(grid_arrange_box)
+print(grid_arrange_bar)
+
+#MOHAMMAD
+install.packages("arules")
+library(arules)
+
+#Save R Output to Text File
+sink("Rules Output default(sup= 0.1, conf= 0.7, minlen=2).txt")
+
+dataAR <- read.csv("adapt_processed.csv")
+
+#If you set the support threshold too high, you might miss out on discovering less 
+#frequent but still interesting associations.
+#A higher confidence threshold will result in more reliable and strong rules,
+#but it may also lead to fewer rules being generated.
+
+#rules<-apriori(dataAR)#default setting supp = 0.1, conf = 0.8
+#rules<-apriori(dataAR,parameter=list(supp=0.3,conf=0.3,minlen=2))
+#rules<-apriori(dataAR,parameter=list(supp=0.5,conf=0.5,minlen=2))
+#rules<-apriori(dataAR,parameter=list(supp=0.3,conf=0.8,minlen=2))
+rules<-apriori(dataAR,parameter=list(supp=0.2,conf=0.7,minlen=2))
+
+inspect(rules)
+
+# Sort the association rules based on lift in descending order
+sorted_rules <- sort(rules, by = "lift", decreasing = TRUE)
+
+# Select the top 10 rules with the highest lift
+top_10_rules <- sorted_rules[1:10]
+
+# Close any open connections for writing (e.g., sink())
+sink()
+
+# Install the 'arulesViz' package for visualization of association rules
+install.packages("arulesViz")
+install.packages("cli")
+library(arulesViz)
+
+# Plot the top 10 rules using default visualization settings
+plot(top_10_rules)
+
+# Plot the top 10 rules using a graph-based visualization
+plot(top_10_rules, method = "graph", control = list(type = "items"),
+     shading = "confidence",   # Use shading to indicate confidence
+     edge.label = "lift",      # Display lift values as edge labels
+     arrow.size = 0.5,         # Adjust arrow size
+     vertex.size = 5,         # Adjust vertex (node) size
+     vertex.label.cex = 0.8,   # Adjust vertex label size
+     edge.label.cex = 0.8,     # Adjust edge label size
+     main = "Top 10 Association Rules",    # Set plot title
+     sub = "Based on Lift and Confidence") # Set plot subtitle
+
+
+
+#MOHAMMAD
+install.packages("ElemStatLearn")
+install.packages("klaR")
+install.packages("caret")
+library(ElemStatLearn)
+library(klaR)
+library(caret)
+
+# Read the dataset "adapt_processed.csv" into 'dataNB'
+dataNB <- read.csv("adapt_processed.csv")
+
+# Split the data into training and test sets
+set.seed(123)  # For reproducibility
+inx <- sample(nrow(dataNB), round(nrow(dataNB) * 0.7))
+train <- dataNB[inx, ]
+test <- dataNB[-inx, ]
+
+# Separate features (x) and target variable (y) for training set
+x_train <- train[, -13]  # Excluding column 13
+y_train <- train$Adaptivity.Level
+
+# Separate features (x) and target variable (y) for test set
+x_test <- test[, -13]
+y_test <- test$Adaptivity.Level
+
+# Train a Naive Bayes model using cross-validation
+nb_model <- train(x_train, y_train, method = 'nb',
+                  trControl = trainControl(method = 'cv', number = 5))
+
+# Make predictions using the trained Naive Bayes model on the test set
+preds <- predict(nb_model, newdata = x_test)
+
+# Create a confusion matrix to evaluate the performance of the model
+tbl <- table(Actual = y_test, Predicted = preds)
+print(tbl)
+
+# Calculate and print the accuracy of the Naive Bayes model
+accuracy <- sum(diag(tbl)) / sum(tbl)
+cat("Accuracy:", accuracy, "\n")
+
+# Create a confusion matrix and calculate additional metrics using caret's confusionMatrix function
+conf_matrix <- confusionMatrix(table(preds, y_test))
+print(conf_matrix)
+
+#MOHAMMAD
+# Install and load the randomForest package
+install.packages("randomForest")
+install.packages("caret")
+library(caret)
+library(randomForest)
+
+# Read the CSV file "adapt_processed.csv" into the dataRF dataframe
+dataRF <- read.csv("adapt_processed.csv")
+
+# Assuming Adaptivity.Level is categorical
+# Encode the categorical variable using ordinal encoding
+dataRF$Adaptivity.Level <- as.integer(factor(dataRF$Adaptivity.Level))
+
+# Fit a Random Forest ensemble model with 300 trees using the encoded Adaptivity.Level as the response variable
+RFensemble300 <- randomForest(factor(Adaptivity.Level) ~ ., data = dataRF, ntree = 300)
+
+# Display the summary of the RFensemble300 model
+RFensemble300
+
+# Fit a Random Forest ensemble model with 300 trees and mtry=1 (consider only 1 feature at each split)
+RFensemble300.mtry1 <- randomForest(factor(Adaptivity.Level) ~ ., data = dataRF, ntree = 300, mtry = 1)
+
+# Display the summary of the RFensemble300.mtry1 model
+RFensemble300.mtry1
+
+# Fit a Random Forest ensemble model with 500 trees using the encoded Adaptivity.Level as the response variable
+RFensemble500 <- randomForest(factor(Adaptivity.Level) ~ ., data = dataRF, ntree = 500)
+
+# Display the summary of the RFensemble500 model
+RFensemble500
+
+# Create a plot of the RFensemble500 model
+plot(RFensemble500)
+
+# Calculate feature importance for the RFensemble500 model
+importance(RFensemble500)
+
+# Create a variable importance plot for the RFensemble500 model
+varImpPlot(RFensemble500)
+
+
+#SAMUEL
+install.packages("cluster")
+install.packages("factoextra")
+library(cluster)
+library(factoextra)
+
+# Load data
+data <- read.csv("converted_data.csv")
+
+data[, 1:(ncol(data) - 1)] <- lapply(data[, 1:(ncol(data) - 1)], function(x) as.numeric(as.factor(x)))# Hierarchical clustering 
+numeric_data <- data[, sapply(data, is.numeric)]
+
+# Impute missing values with column means
+numeric_data[is.na(numeric_data)] <- colMeans(numeric_data, na.rm = TRUE)
+
+dist_matrix <- dist(numeric_data)
+d = dist_matrix
+hc <- hclust(d, method="average")
+
+# Plot dendrogram
+plot(hc, hang=-1, main="Dendrogram")
+
+# Color labels by cluster (k=3)
+clusters <- cutree(hc, k=3) 
+rect.hclust(hc, k=3, border="red")
+labels_col <- rainbow(3)[clusters]
+labels(hc, col=labels_col)
+
+# Silhouette analysis
+sil <- silhouette(clusters, dist=d)
+mean_sil <- mean(sil[,3]) # Average silhouette width
+
+# Compare methods 
+hc_single <- hclust(d, method="single")
+hc_avg <- hclust(d, method="average")
+
+plot(hc_single, main="Single Linkage", hang=-1)
+plot(hc_avg, main="Average Linkage", hang=-1)
+
+
+#SAMUEL
+install.packages("mclust")
+library(mclust)
+
+# Load data
+data <- read.csv("converted_data.csv")
+
+# Preprocess data
+data[, 1:(ncol(data) - 1)] <- lapply(data[, 1:(ncol(data) - 1)], function(x) as.numeric(as.factor(x)))
+numeric_data <- data[, sapply(data, is.numeric)]
+numeric_data[is.na(numeric_data)] <- colMeans(numeric_data, na.rm = TRUE)
+
+# Fit GMM model
+gmm <- Mclust(numeric_data, G = 1:10)
+
+
+# Calculate silhouette scores
+num_clusters <- 1:10
+silhouette_scores <- numeric(length(num_clusters))
+
+for (i in num_clusters) {
+  cluster_assignments <- gmm$classification[, i]
+  silhouette_scores[i] <- silhouette(numeric_data, cluster_assignments)$avg.width
+}
+
+# Plot BIC and silhouette scores
+par(mfrow = c(1, 2))  # Create a 1x2 grid of plots
+
+plot(gmm, what = "BIC")
+
+plot(num_clusters, silhouette_scores, type = "b", pch = 19,
+     xlab = "Number of Clusters", ylab = "Silhouette Score")
+
+
+
+#SAMUEL
+install.packages("neuralnet")
+library(neuralnet)
+
+# Read the CSV file
+data <- read.csv("students_adaptability_level_online_education (1).csv")
+
+# Convert all columns to numeric except the last column
+data[, 1:(ncol(data) - 1)] <- lapply(data[, 1:(ncol(data) - 1)], function(x) as.numeric(as.factor(x)))
+
+# Print the converted data frame
+print(data)
+
+
+#Set Parameters
+y = as.matrix(data[,12])
+y[which(y=="Low")] = 0
+y[which(y=="High")] = 1
+y = as.numeric(y)
+x = as.numeric(as.matrix(data[,2:11]))
+x = matrix(as.numeric(x),ncol=10)
+
+
+#Model
+nn <- neuralnet(y ~ Gender  + `Institution.Type` + `IT.Student` +
+                  Location + `Load.shedding` + `Financial.Condition` +
+                  `Internet.Type` + `Self.Lms` + Device,
+                data = data, hidden = 5)
+
+# Predict results
+yy = nn$net.result[[1]]
+yhat = matrix(0,length(y),1)
+yhat[which(yy > mean(yy))] = 1
+yhat[which(yy <= mean(yy))] = 0
+cm = print(table(y,yhat))
+cm
+
+#Plot Model
+plot(nn)
+
+
+
+      
+

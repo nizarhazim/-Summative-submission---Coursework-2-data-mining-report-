@@ -1,0 +1,278 @@
+---
+title: "ADAPTABLITY LEVEL OF STUDENTS TO ONLINE LEARNING"
+author: "Samue Ezembu & Muhammad Zarul"
+date: "2023-08-20"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Load necessary packages
+install.packages(c("dplyr", "ggplot2", "gridExtra"), repos = "https://cran.r-project.org")
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+
+```
+data <- read.csv("students_adaptability_level_online_education (1).csv")
+
+# Basic preprocessing
+# Assuming you might need to convert factors to character for consistency
+data <- data %>%
+  mutate_if(is.factor, as.character)
+  
+# Data visualization and EDA
+# Summary statistics
+summary(data)
+
+box_plots <- list()
+
+# Iterate through each column and create a box plot
+for (col_name in colnames(data)) {
+  if (col_name != "Gender" && col_name != "Location" && is.numeric(data[[col_name]])) {
+    plot <- ggplot(data, aes_string(y = col_name)) +
+      geom_boxplot(fill = "lightgreen", color = "black") +
+      labs(title = paste("Box Plot of", col_name), y = col_name) +
+      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())  # Remove x-axis labels and ticks
+    
+    box_plots[[col_name]] <- plot
+  }
+}
+
+# Create a list to store individual bar plots for non-numeric columns
+bar_plots <- list()
+
+# Iterate through each column and create bar plots for non-numeric columns
+for (col_name in colnames(data)) {
+  if (col_name != "Age" && !is.numeric(data[[col_name]])) {
+    plot <- ggplot(data, aes_string(x = col_name)) +
+      geom_bar(fill = "purple", color = "black") +
+      labs(title = paste("Bar Plot of", col_name), x = col_name, y = "Count") +
+      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())  # Remove x-axis labels and ticks
+    
+    bar_plots[[col_name]] <- plot
+  }
+}
+
+# Arrange the bar plots in a grid
+grid_arrange_bar <- do.call(grid.arrange, c(bar_plots, ncol = 2))
+grid_arrange_box <- do.call(grid.arrange, c(box_plots, ncol = 2))
+
+
+```{r apriori-association-rules}
+install.packages(c("arules", "arulesViz"), repos = "https://cran.r-project.org")
+library(arules)
+library(arulesViz)
+
+
+dataAR <- read.csv("adapt_processed.csv")
+
+# Set Apriori parameters
+rules <- apriori(dataAR, parameter = list(supp = 0.65, conf = 0.85, minlen = 2))
+
+# Inspect the generated rules
+inspect(rules)
+
+
+# Plot the rules as a graph
+plot(rules, method = "graph", control = list(type = "items"))
+
+```{r naive-bayes-classification}
+# Install and load the necessary packages
+install.packages(c("klaR", "caret"), repos = "https://cran.r-project.org")
+library(klaR)
+library(caret)
+
+# Read the dataset "adapt_processed.csv" into 'dataNB'
+dataNB <- read.csv("adapt_processed.csv")
+
+# Split the data into training and test sets
+set.seed(123)  # For reproducibility
+inx <- sample(nrow(dataNB), round(nrow(dataNB) * 0.7))
+train <- dataNB[inx, ]
+test <- dataNB[-inx, ]
+
+# Separate features (x) and target variable (y) for training set
+x_train <- train[, -13]  # Excluding column 13
+y_train <- train$Adaptivity.Level
+
+# Separate features (x) and target variable (y) for test set
+x_test <- test[, -13]
+y_test <- test$Adaptivity.Level
+
+# Train a Naive Bayes model using cross-validation
+nb_model <- train(x_train, y_train, method = 'nb',
+                  trControl = trainControl(method = 'cv', number = 5))
+
+# Make predictions using the trained Naive Bayes model on the test set
+preds <- predict(nb_model, newdata = x_test)
+
+# Create a confusion matrix to evaluate the performance of the model
+tbl <- table(Actual = y_test, Predicted = preds)
+print(tbl)
+
+# Calculate and print the accuracy of the Naive Bayes model
+accuracy <- sum(diag(tbl)) / sum(tbl)
+cat("Accuracy:", accuracy, "\n")
+
+# Create a confusion matrix and calculate additional metrics using caret's confusionMatrix function
+conf_matrix <- confusionMatrix(table(preds, y_test))
+print(conf_matrix)
+
+
+
+```{r random-forest-classification}
+# Install and load the necessary packages
+install.packages(c("randomForest", "caret"), repos = "https://cran.r-project.org")
+library(caret)
+library(randomForest)
+
+# Read the CSV file "adapt_processed.csv" into the data
+dataRF <- read.csv("adapt_processed.csv")
+
+# Assuming Adaptivity.Level is categorical
+# Encode the categorical variable using ordinal encoding
+dataRF$Adaptivity.Level <- as.integer(factor(dataRF$Adaptivity.Level))
+
+# Fit a Random Forest ensemble model with 300 trees using the encoded Adaptivity.Level as the response variable
+RFensemble300 <- randomForest(factor(Adaptivity.Level) ~ ., data = dataRF, ntree = 300)
+
+# Display the summary of the RFensemble300 model
+summary(RFensemble300)
+
+# Fit a Random Forest ensemble model with 300 trees and mtry=1 (consider only 1 feature at each split)
+RFensemble300.mtry1 <- randomForest(factor(Adaptivity.Level) ~ ., data = dataRF, ntree = 300, mtry = 1)
+
+# Display the summary of the RFensemble300.mtry1 model
+summary(RFensemble300.mtry1)
+
+# Fit a Random Forest ensemble model with 500 trees using the encoded Adaptivity.Level as the response variable
+RFensemble500 <- randomForest(factor(Adaptivity.Level) ~ ., data = dataRF, ntree = 500)
+
+# Display the summary of the RFensemble500 model
+summary(RFensemble500)
+
+# Create a plot of the RFensemble500 model
+plot(RFensemble500)
+
+# Calculate feature importance for the RFensemble500 model
+importance(RFensemble500)
+
+# Create a variable importance plot for the RFensemble500 model
+varImpPlot(RFensemble500)
+
+
+```{r Install Packages for H-clustering}
+#SAMUEL
+install.packages(c("cluster", "factoextra"), repos = "https://cran.r-project.org")
+library(cluster)
+library(factoextra)
+# Load data
+data <- read.csv("converted_data.csv")
+
+data[, 1:(ncol(data) - 1)] <- lapply(data[, 1:(ncol(data) - 1)], function(x) as.numeric(as.factor(x)))
+numeric_data <- data[, sapply(data, is.numeric)]
+
+# Impute missing values with column means
+numeric_data[is.na(numeric_data)] <- colMeans(numeric_data, na.rm = TRUE)
+
+# Distance Matrix
+dist_matrix <- dist(numeric_data)
+d = dist_matrix
+hc <- hclust(d, method="average")
+
+# Plot dendrogram
+plot(hc, hang=-1, main="Dendrogram")
+
+# Color labels by cluster (k=3)
+clusters <- cutree(hc, k=3) 
+rect.hclust(hc, k=3, border="red")
+labels_col <- rainbow(3)[clusters]
+labels(hc, col=labels_col)
+
+# Silhouette analysis
+sil <- silhouette(clusters, dist=d)
+mean_sil <- mean(sil[,3]) # Average silhouette width
+
+# Compare methods 
+hc_single <- hclust(d, method="single")
+hc_avg <- hclust(d, method="average")
+
+plot(hc_single, main="Single Linkage", hang=-1)
+plot(hc_avg, main="Average Linkage", hang=-1)
+
+
+
+
+```{r Install Packages for GNN}
+#SAMUEL
+install.packages("mclust", repos = "https://cran.r-project.org")
+library(mclust)
+
+
+# Load data
+data <- read.csv("converted_data.csv")
+
+
+# Preprocess data
+data[, 1:(ncol(data) - 1)] <- lapply(data[, 1:(ncol(data) - 1)], function(x) as.numeric(as.factor(x)))
+numeric_data <- data[, sapply(data, is.numeric)]
+numeric_data[is.na(numeric_data)] <- colMeans(numeric_data, na.rm = TRUE)
+
+
+# Fit GMM model
+gmm <- Mclust(numeric_data, G = 1:10)
+
+
+# Calculate silhouette scores
+num_clusters <- 1:10
+
+
+# Plot BIC and 
+plot(gmm, what = "BIC")
+
+
+
+```{r Load Packages for Deep learning}
+#SAMUEL
+install.packages("neuralnet", repos = "https://cran.r-project.org")
+library(neuralnet)
+
+# Read the CSV file
+data <- read.csv("students_adaptability_level_online_education (1).csv")
+
+# Convert all columns to numeric except the last column
+data[, 1:(ncol(data) - 1)] <- lapply(data[, 1:(ncol(data) - 1)], function(x) as.numeric(as.factor(x)))
+
+
+# Assign input and test variable x and y
+y = as.matrix(data[,12])
+y[which(y=="Low")] = 0
+y[which(y=="High")] = 1
+y = as.numeric(y)
+x = as.numeric(as.matrix(data[,2:11]))
+x = matrix(as.numeric(x), ncol=10)
+
+
+nn <- neuralnet(y ~ Gender + `Institution.Type` + `IT.Student` +
+                  Location + `Load.shedding` + `Financial.Condition` +
+                  `Internet.Type` + `Self.Lms` + Device,
+                data = data, hidden = 5)
+
+# Predict results
+yy = nn$net.result[[1]]
+yhat = matrix(0, length(y), 1)
+yhat[which(yy > mean(yy))] = 1
+yhat[which(yy <= mean(yy))] = 0
+cm = print(table(y, yhat))
+
+
+# Plot Model
+plot(nn)
+
+
+# Model accuracy
+print(sum(diag(cm)) / sum(cm))
